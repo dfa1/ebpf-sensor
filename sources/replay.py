@@ -1,3 +1,8 @@
+from typing import Iterator
+
+from sources.eventsource import EventSource
+
+
 class ReplayEventSource(EventSource):
     """Feed recorded events from a file — useful for testing"""
     def __init__(self, path: str):

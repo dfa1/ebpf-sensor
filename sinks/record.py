@@ -1,3 +1,7 @@
+from event import Event
+from sinks.sink import EventSink
+
+
 class RecordEventSink(EventSink):
     def __init__(self):
         self.events = []
