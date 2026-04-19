@@ -1,10 +1,22 @@
-class EBPFEventSource(EventSource):
-    def __init__(self, bpf_prog: str):
-        self.b = BPF(text=bpf_prog)
+from typing import Iterator
+
+from bcc import BPF  # type: ignore[import-not-found]
+
+from event import Event
+
+
+class EBPFEventSource:
+    def __init__(self, bpf_prog: str) -> None:
+        self._bpf = BPF(text=bpf_prog)
 
     def events(self) -> Iterator[Event]:
-       for fields in self.b.trace_fields():
-          try:
-             yield fields.decode(errors='replace')
-          except AttributeError:
-             continue
+        for task, pid, cpu, flags, ts, msg in self._bpf.trace_fields():
+            try:
+                yield Event(
+                    timestamp=int(ts * 1_000_000_000),
+                    pid=int(pid),
+                    process=task.decode(errors="replace"),
+                    payload=msg.decode(errors="replace"),
+                )
+            except (ValueError, AttributeError):
+                continue

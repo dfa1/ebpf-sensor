@@ -1,10 +1,9 @@
 from event import Event
-from sinks.sink import EventSink
 
 
-class RecordEventSink(EventSink):
-    def __init__(self):
-        self.events = []
+class RecordEventSink:
+    def __init__(self) -> None:
+        self.events: list[Event] = []
 
     def send(self, event: Event) -> None:
         self.events.append(event)

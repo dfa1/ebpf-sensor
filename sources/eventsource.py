@@ -1,9 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import Iterator
+from typing import Iterator, Protocol
+
 from event import Event
 
-class EventSource(ABC):
 
-    @abstractmethod
-    def events(self) -> Iterator[Event]:
-        pass
+class EventSource(Protocol):
+    def events(self) -> Iterator[Event]: ...

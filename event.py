@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
+
 @dataclass(frozen=True)
 class Event:
-    timestamp: float
+    timestamp: int  # nanoseconds since boot
     pid: int
     process: str
     payload: str

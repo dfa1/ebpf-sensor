@@ -1,6 +1,7 @@
-from abc import ABC, abstractmethod
+from typing import Protocol
 
-class EventSink(ABC):
-    @abstractmethod
-    def send(self, event: dict) -> None:
-        pass
+from event import Event
+
+
+class EventSink(Protocol):
+    def send(self, event: Event) -> None: ...
