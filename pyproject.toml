@@ -21,7 +21,6 @@ python_version = "3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-verbosity = 1
 
 [tool.ruff]
 target-version = "py312"
