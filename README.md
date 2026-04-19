@@ -16,20 +16,19 @@ uv sync
 ## Usage
 
 ```python
-from sources.replay import ReplayEventSource
-from sinks.record import RecordEventSink
+from sources.ebpf import EBPFEventSource
+from sinks.kafka import KafkaEventSink
 
-source = ReplayEventSource("events.ndjson")
-sink = RecordEventSink("recorded.ndjson")
+source = EBPFEventSource(bpf_prog=open("prog.c").read())
+sink = KafkaEventSink(bootstrap_servers="localhost:9092", topic="events")
 for event in source.events():
     sink.write(event)
-sink.close()
 ```
 
 ## Development
 
 ```bash
-uv run pytest                                           # tests
+uv run python -m pytest                                 # tests
 uv run python -m mypy sources/ sinks/ event.py tests/  # type check
 uv run ruff format .                                   # format
 uv run ruff check .                                    # lint
