@@ -29,7 +29,7 @@ sink.close()
 ## Development
 
 ```bash
-uv run python -m pytest                                 # tests
+uv run pytest                                           # tests
 uv run python -m mypy sources/ sinks/ event.py tests/  # type check
 uv run ruff format .                                   # format
 uv run ruff check .                                    # lint
