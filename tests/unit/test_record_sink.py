@@ -9,7 +9,9 @@ from sinks.record import RecordEventSink
 
 @pytest.fixture
 def event() -> Event:
-    return Event(timestamp=1_000_000_000, pid=1234, process="bash", payload="execve /bin/ls")
+    return Event(
+        timestamp=1_000_000_000, pid=1234, process="bash", payload="execve /bin/ls"
+    )
 
 
 def test_write_stores_event_in_memory(tmp_path: Path, event: Event) -> None:
@@ -38,7 +40,9 @@ def test_write_appends_ndjson_line(tmp_path: Path, event: Event) -> None:
 
 def test_write_multiple_events_order(tmp_path: Path) -> None:
     events = [
-        Event(timestamp=i * 1_000_000_000, pid=i, process=f"proc{i}", payload=f"data{i}")
+        Event(
+            timestamp=i * 1_000_000_000, pid=i, process=f"proc{i}", payload=f"data{i}"
+        )
         for i in range(5)
     ]
     path = tmp_path / "out.ndjson"
