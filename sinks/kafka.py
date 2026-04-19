@@ -14,5 +14,5 @@ class KafkaEventSink:
             value_serializer=lambda v: json.dumps(v).encode(),
         )
 
-    def send(self, event: Event) -> None:
+    def write(self, event: Event) -> None:
         self._producer.send(self._topic, value=asdict(event))
