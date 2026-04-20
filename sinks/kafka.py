@@ -16,3 +16,7 @@ class KafkaEventSink:
 
     def write(self, event: Event) -> None:
         self._producer.send(self._topic, value=asdict(event))
+
+    def close(self) -> None:
+        self._producer.flush()
+        self._producer.close()
