@@ -1,13 +1,15 @@
-from typing import Iterator
-
-from bcc import BPF  # type: ignore[import-not-found]
+from typing import Iterator, Protocol
 
 from event import Event
 
 
+class _BPFTracer(Protocol):
+    def trace_fields(self) -> Iterator[tuple[bytes, int, int, int, float, bytes]]: ...
+
+
 class EBPFEventSource:
-    def __init__(self, bpf_prog: str) -> None:
-        self._bpf = BPF(text=bpf_prog)
+    def __init__(self, bpf: _BPFTracer) -> None:
+        self._bpf = bpf
 
     def events(self) -> Iterator[Event]:
         for task, pid, cpu, flags, ts, msg in self._bpf.trace_fields():

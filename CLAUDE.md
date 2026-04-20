@@ -16,3 +16,7 @@ uv run ruff check .                                    # lint
 - `Event.timestamp` is `int` nanoseconds since boot
 - `ReplayEventSource` yields `Event` directly (parses NDJSON)
 - `mypy --strict` must pass clean
+
+## Testing
+
+- Only mock types you own — never mock third-party types (e.g. `bcc.BPF`) directly; wrap them in a local `Protocol` and mock that instead
