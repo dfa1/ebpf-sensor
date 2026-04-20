@@ -4,7 +4,7 @@ from typing import Callable
 from unittest.mock import MagicMock
 
 from event import Event
-from sources.bpf import TASK_COMM_LEN, _PAYLOAD_LEN, BpfEventSource, _BpfEvent
+from sources.bpf import BpfEventSource, _BpfEvent
 
 
 def _make_raw(ts: int, pid: int, comm: bytes, payload: bytes) -> _BpfEvent:
