@@ -7,9 +7,7 @@ from event import Event
 from sources.bpf import TASK_COMM_LEN, _PAYLOAD_LEN, BpfEventSource, _BpfEvent
 
 
-def _make_raw(
-    ts: int, pid: int, comm: bytes, payload: bytes
-) -> _BpfEvent:
+def _make_raw(ts: int, pid: int, comm: bytes, payload: bytes) -> _BpfEvent:
     e = _BpfEvent()
     e.ts = ts
     e.pid = pid
@@ -43,7 +41,10 @@ def test_yields_event_from_perf_buffer() -> None:
     source = _source_with_events([raw])
     (event,) = islice(source.events(), 1)
     assert event == Event(
-        timestamp=1_000_000_000, pid=1234, process="bash", payload="tcp_connect port=443"
+        timestamp=1_000_000_000,
+        pid=1234,
+        process="bash",
+        payload="tcp_connect port=443",
     )
 
 

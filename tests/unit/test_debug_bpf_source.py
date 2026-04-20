@@ -20,12 +20,12 @@ def _source_with_rows(
 
 
 def test_yields_event_from_trace_fields() -> None:
-    source = _source_with_rows(
-        [_make_row(b"bash", 1234, 1.0, b"execve /bin/ls")]
-    )
+    source = _source_with_rows([_make_row(b"bash", 1234, 1.0, b"execve /bin/ls")])
     events = list(source.events())
     assert events == [
-        Event(timestamp=1_000_000_000, pid=1234, process="bash", payload="execve /bin/ls")
+        Event(
+            timestamp=1_000_000_000, pid=1234, process="bash", payload="execve /bin/ls"
+        )
     ]
 
 
@@ -63,7 +63,9 @@ def test_skips_row_with_non_decodable_task() -> None:
 
 def test_skips_row_with_invalid_pid() -> None:
     mock_bpf = MagicMock()
-    mock_bpf.trace_fields.return_value = iter([(b"proc", "not-an-int", 0, 0, 1.0, b"msg")])
+    mock_bpf.trace_fields.return_value = iter(
+        [(b"proc", "not-an-int", 0, 0, 1.0, b"msg")]
+    )
     source = DebugBpfEventSource(mock_bpf)
     assert list(source.events()) == []
 

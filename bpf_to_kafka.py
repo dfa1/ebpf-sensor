@@ -27,7 +27,9 @@ def main() -> None:
     signal.signal(signal.SIGINT, _shutdown)
     signal.signal(signal.SIGTERM, _shutdown)
 
-    print(f"Tracing TCP connects to port {args.port} -> {args.topic}@{args.bootstrap_servers}")
+    print(
+        f"Tracing TCP connects to port {args.port} -> {args.topic}@{args.bootstrap_servers}"
+    )
     for event in source.events():
         sink.write(event)
 
