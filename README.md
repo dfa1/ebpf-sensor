@@ -1,6 +1,8 @@
 # ebpf-sensor
 
 eBPF event pipeline with pluggable sources and sinks.
+Companion for [this article about BPF](https://dfa1.github.io/articles/from-bpf-to-ebpf-twenty-years-later).
+
 
 ## Requirements
 
