@@ -7,7 +7,7 @@ import sys
 from bcc import BPF  # type: ignore[import-not-found]
 
 from sinks.kafka import KafkaEventSink
-from sources.ebpf import EBPFEventSource
+from sources.debug_bpf import DebugBpfEventSource
 from sources.predefined_programs import tcp_connect
 
 
@@ -19,7 +19,7 @@ def main() -> None:
     args = parser.parse_args()
 
     sink = KafkaEventSink(args.bootstrap_servers, args.topic)
-    source = EBPFEventSource(BPF(text=tcp_connect(args.port)))
+    source = DebugBpfEventSource(BPF(text=tcp_connect(args.port)))
 
     def _shutdown(sig: int, _: object) -> None:
         sys.exit(0)

@@ -2,7 +2,7 @@ from typing import Iterator
 from unittest.mock import MagicMock
 
 from event import Event
-from sources.ebpf import EBPFEventSource
+from sources.debug_bpf import DebugBpfEventSource
 
 
 def _make_row(
@@ -13,10 +13,10 @@ def _make_row(
 
 def _source_with_rows(
     rows: list[tuple[bytes, int, int, int, float, bytes]],
-) -> EBPFEventSource:
+) -> DebugBpfEventSource:
     mock_bpf = MagicMock()
     mock_bpf.trace_fields.return_value = iter(rows)
-    return EBPFEventSource(mock_bpf)
+    return DebugBpfEventSource(mock_bpf)
 
 
 def test_yields_event_from_trace_fields() -> None:
@@ -57,14 +57,14 @@ def test_skips_row_with_non_decodable_task() -> None:
     bad_task.decode.side_effect = AttributeError
     mock_bpf = MagicMock()
     mock_bpf.trace_fields.return_value = iter([(bad_task, 1, 0, 0, 1.0, b"msg")])
-    source = EBPFEventSource(mock_bpf)
+    source = DebugBpfEventSource(mock_bpf)
     assert list(source.events()) == []
 
 
 def test_skips_row_with_invalid_pid() -> None:
     mock_bpf = MagicMock()
     mock_bpf.trace_fields.return_value = iter([(b"proc", "not-an-int", 0, 0, 1.0, b"msg")])
-    source = EBPFEventSource(mock_bpf)
+    source = DebugBpfEventSource(mock_bpf)
     assert list(source.events()) == []
 
 

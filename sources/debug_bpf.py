@@ -7,7 +7,7 @@ class _BPFTracer(Protocol):
     def trace_fields(self) -> Iterator[tuple[bytes, int, int, int, float, bytes]]: ...
 
 
-class EBPFEventSource:
+class DebugBpfEventSource:
     def __init__(self, bpf: _BPFTracer) -> None:
         self._bpf = bpf
 
