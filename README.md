@@ -30,10 +30,10 @@ for event in source.events():
 ## Development
 
 ```bash
-uv run python -m pytest                                 # tests
-uv run python -m mypy sources/ sinks/ event.py tests/  # type check
-uv run ruff format .                                   # format
-uv run ruff check .                                    # lint
+uv run python -m pytest  # tests
+uv run python -m .       # type check
+uv run ruff format .     # format
+uv run ruff check .      # lint
 ```
 
 ## License
