@@ -7,3 +7,4 @@ class Event:
     pid: int
     process: str
     payload: str
+    check: str = ""  # name of the BPF check that produced this event

@@ -26,9 +26,12 @@ class _BPFPerfSource(Protocol):
 
 
 class BpfEventSource:
-    def __init__(self, bpf: _BPFPerfSource, table: str = "events") -> None:
+    def __init__(
+        self, bpf: _BPFPerfSource, table: str = "events", check: str = ""
+    ) -> None:
         self._bpf = bpf
         self._table = table
+        self._check = check
 
     def events(self) -> Iterator[Event]:
         pending: list[Event] = []
@@ -41,6 +44,7 @@ class BpfEventSource:
                     pid=int(e.pid),
                     process=e.comm.decode(errors="replace"),
                     payload=e.payload.decode(errors="replace"),
+                    check=self._check,
                 )
             )
 

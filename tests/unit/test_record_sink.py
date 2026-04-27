@@ -35,6 +35,7 @@ def test_write_appends_ndjson_line(tmp_path: Path, event: Event) -> None:
         "pid": 1234,
         "process": "bash",
         "payload": "execve /bin/ls",
+        "check": "",
     }
 
 
