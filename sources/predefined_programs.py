@@ -71,6 +71,48 @@ int kprobe__icmp_push_reply(struct pt_regs *ctx) {
 """
 
 
+def suid_exec() -> str:
+    """Trace execve of SUID/SGID binaries by inspecting inode mode bits at bprm check time."""
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/binfmts.h>
+#include <linux/fs.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+#define S_ISUID       0004000
+#define S_ISGID       0002000
+
+struct suid_event_t {
+    u64  ts;
+    u32  pid;
+    u16  mode;
+    char comm[TASK_COMM_LEN];
+    char filename[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+int kprobe__security_bprm_check(struct pt_regs *ctx, struct linux_binprm *bprm) {
+    struct inode *inode = bprm->file->f_inode;
+    umode_t mode = 0;
+    bpf_probe_read_kernel(&mode, sizeof(mode), &inode->i_mode);
+    if (!(mode & (S_ISUID | S_ISGID))) return 0;
+
+    struct suid_event_t ev = {};
+    ev.ts   = bpf_ktime_get_ns();
+    ev.pid  = bpf_get_current_pid_tgid() >> 32;
+    ev.mode = (u16)(mode & 07777);
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    bpf_probe_read_kernel_str(ev.filename, sizeof(ev.filename), bprm->filename);
+
+    events.perf_submit(ctx, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
 def ip_host(addr: str) -> str:
     """Trace TCP connections to or from the given IPv4 address (dotted decimal)."""
     octets = [int(o) for o in addr.split(".")]
