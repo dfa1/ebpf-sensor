@@ -4,7 +4,15 @@ from typing import Callable
 from unittest.mock import MagicMock
 
 from event import Event
-from sources.bpf import BpfEventSource, _BpfEvent
+from sources.bpf import BpfEventSource, _BpfEvent, _PAYLOAD_LEN, TASK_COMM_LEN
+
+
+def test_bpfevent_layout() -> None:
+    assert ctypes.sizeof(_BpfEvent) == 288  # 8+4+16+256 rounded up to u64 alignment
+    assert _BpfEvent.ts.offset == 0
+    assert _BpfEvent.pid.offset == 8
+    assert _BpfEvent.comm.offset == 12
+    assert _BpfEvent.payload.offset == 28
 
 
 def _make_raw(ts: int, pid: int, comm: bytes, payload: bytes) -> _BpfEvent:

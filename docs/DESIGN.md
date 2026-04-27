@@ -88,6 +88,76 @@ Priority: P0 = high-confidence / low-noise, P1 = useful with allowlisting, P2 = 
 
 ---
 
+## MITRE ATT&CK Integration
+
+Every detection check maps to one ATT&CK tactic and technique. Tags are stamped onto Kafka messages **at the sensor**, not in the SIEM.
+
+**Why at the sensor**: tagging in the SIEM requires a lookup or enrichment join on every incoming event — CPU and I/O that scales with fleet size. Doing it at the source means the SIEM receives pre-enriched events it can index and route directly, with no per-event fan-out. The policy config is deployed once per host via config management; the mapping cost is paid at config load, not at event time.
+
+Concretely: a fleet of 1000 hosts emitting 10k events/s each would require 10M enrichment lookups/s in the SIEM. With sensor-side tagging that cost is zero in the SIEM — each event arrives with `mitre_tactic` and `mitre_technique` already set.
+
+### Check → ATT&CK Mapping
+
+| Check | Tactic | Tactic ID | Technique | Technique ID |
+|---|---|---|---|---|
+| `suid_exec` | Privilege Escalation | TA0004 | Abuse Elevation Control Mechanism: Setuid and Setgid | T1548.001 |
+| `commit_creds` | Privilege Escalation | TA0004 | Exploitation for Privilege Escalation | T1068 |
+| `module_load` | Persistence / Defense Evasion | TA0003 / TA0005 | Boot or Logon Autostart Execution: Kernel Modules | T1547.006 |
+| `raw_socket` | Exfiltration | TA0010 | Exfiltration Over Alternative Protocol | T1048 |
+| `bpf_prog_load` | Defense Evasion | TA0005 | Indicator Removal: Disable or Modify Tools | T1562.001 |
+| `container_escape_unshare` | Privilege Escalation | TA0004 | Escape to Host | T1611 |
+| `memfd_exec` | Defense Evasion | TA0005 | Reflective Code Loading | T1620 |
+| `shadow_read` | Credential Access | TA0006 | OS Credential Dumping | T1003 |
+
+### Kafka Message Schema (with MITRE)
+
+```json
+{
+  "timestamp": 1714214400000000000,
+  "pid": 1234,
+  "process": "bash",
+  "payload": "/usr/bin/sudo",
+  "check": "suid_exec",
+  "priority": "critical",
+  "host": "worker-gpu-01",
+  "mitre_tactic": "TA0004",
+  "mitre_technique": "T1548.001"
+}
+```
+
+`mitre_tactic` and `mitre_technique` are present only when the check has a configured MITRE mapping. Checks without a mapping emit without those fields.
+
+### SIEM Usage
+
+- **Coverage dashboard**: group by `mitre_tactic` to see which ATT&CK tactics have active detections.
+- **Alert rules**: trigger on `mitre_technique == "T1068"` (privilege escalation) regardless of which underlying check fired.
+- **Detection-as-code**: policy YAML is the source of truth for check → technique mapping. Changes are version-controlled and auditable.
+
+### Policy Config Format
+
+```yaml
+default: info
+rules:
+  suid_exec:
+    priority: critical
+    mitre_tactic: "TA0004"
+    mitre_technique: "T1548.001"
+  commit_creds:
+    priority: critical
+    mitre_tactic: "TA0004"
+    mitre_technique: "T1068"
+  module_load:
+    priority: high
+    mitre_tactic: "TA0003"
+    mitre_technique: "T1547.006"
+  tcp_connect:
+    priority: low
+```
+
+`mitre_tactic` / `mitre_technique` are optional per rule. `priority` is required.
+
+---
+
 ## Threat Categories: Hook Details
 
 ### 1. Privilege Escalation

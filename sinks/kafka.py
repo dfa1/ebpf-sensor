@@ -29,6 +29,10 @@ class KafkaEventSink:
         if self._policy is not None:
             msg["priority"] = self._policy.evaluate(event.check).value
             msg["host"] = self._host
+            tag = self._policy.mitre_tag(event.check)
+            if tag is not None:
+                msg["mitre_tactic"] = tag.tactic_id
+                msg["mitre_technique"] = tag.technique_id
         self._producer.send(self._topic, value=msg)
 
     def close(self) -> None:

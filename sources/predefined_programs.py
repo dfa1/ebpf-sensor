@@ -84,12 +84,11 @@ def suid_exec() -> str:
 #define S_ISUID       0004000
 #define S_ISGID       0002000
 
-struct suid_event_t {
+struct event_t {
     u64  ts;
     u32  pid;
-    u16  mode;
     char comm[TASK_COMM_LEN];
-    char filename[PAYLOAD_LEN];
+    char payload[PAYLOAD_LEN];
 };
 
 BPF_PERF_OUTPUT(events);
@@ -100,12 +99,82 @@ int kprobe__security_bprm_check(struct pt_regs *ctx, struct linux_binprm *bprm) 
     bpf_probe_read_kernel(&mode, sizeof(mode), &inode->i_mode);
     if (!(mode & (S_ISUID | S_ISGID))) return 0;
 
-    struct suid_event_t ev = {};
-    ev.ts   = bpf_ktime_get_ns();
-    ev.pid  = bpf_get_current_pid_tgid() >> 32;
-    ev.mode = (u16)(mode & 07777);
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
-    bpf_probe_read_kernel_str(ev.filename, sizeof(ev.filename), bprm->filename);
+    bpf_probe_read_kernel_str(ev.payload, sizeof(ev.payload), bprm->filename);
+
+    events.perf_submit(ctx, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def commit_creds() -> str:
+    """Trace privilege escalation: non-root process committing uid=0 credentials."""
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/cred.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+int kprobe__commit_creds(struct pt_regs *ctx, struct cred *new) {
+    u32 old_uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (old_uid == 0) return 0;
+
+    u32 new_uid = 0;
+    bpf_probe_read_kernel(&new_uid, sizeof(new_uid), &new->uid);
+    if (new_uid != 0) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(ctx, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def module_load() -> str:
+    """Trace kernel module loading via do_init_module."""
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/module.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN    16
+#define PAYLOAD_LEN      256
+#define MODULE_NAME_LEN  56
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+int kprobe__do_init_module(struct pt_regs *ctx, struct module *mod) {
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    bpf_probe_read_kernel_str(ev.payload, sizeof(ev.payload), mod->name);
 
     events.perf_submit(ctx, &ev, sizeof(ev));
     return 0;
