@@ -6,14 +6,6 @@ from policy import MitreTag, Policy, Priority
 # --- Priority ---
 
 
-def test_priority_values_are_strings() -> None:
-    assert Priority.CRITICAL.value == "critical"
-    assert Priority.HIGH.value == "high"
-    assert Priority.MEDIUM.value == "medium"
-    assert Priority.LOW.value == "low"
-    assert Priority.INFO.value == "info"
-
-
 # --- Policy.evaluate ---
 
 

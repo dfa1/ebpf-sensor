@@ -24,6 +24,7 @@ uv run ruff check .                                    # lint
 - Use dependency injection for mocks, never `sys.modules` / conftest monkey-patching
 - Test filenames: snake_case only (no hyphens)
 - A task is NOT complete until `uv run python -m pytest` passes and you paste the output
+- **No string checks** — do not assert that specific string literals appear inside generated code (e.g. `assert "kprobe__foo" in prog`). These tests are brittle, test implementation not behavior, and break on trivial renames. Test observable behavior: return types, exceptions, inequality of distinct outputs, determinism.
 
 ## Exploration
 
