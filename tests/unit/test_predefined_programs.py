@@ -2,9 +2,12 @@ import pytest
 
 from sources.predefined_programs import (
     commit_creds,
+    execve,
     icmp,
     ip_host,
     module_load,
+    ptrace,
+    sensitive_file_open,
     suid_exec,
     tcp_port,
     udp_port,
@@ -75,3 +78,50 @@ def test_module_load_returns_string() -> None:
 
 def test_module_load_is_deterministic() -> None:
     assert module_load() == module_load()
+
+
+# --- execve ---
+
+
+def test_execve_returns_string() -> None:
+    assert isinstance(execve(), str)
+
+
+def test_execve_is_deterministic() -> None:
+    assert execve() == execve()
+
+
+# --- ptrace ---
+
+
+def test_ptrace_returns_string() -> None:
+    assert isinstance(ptrace(), str)
+
+
+def test_ptrace_is_deterministic() -> None:
+    assert ptrace() == ptrace()
+
+
+# --- sensitive_file_open ---
+
+
+def test_sensitive_file_open_returns_string() -> None:
+    assert isinstance(sensitive_file_open("/etc/shadow"), str)
+
+
+def test_sensitive_file_open_different_paths_differ() -> None:
+    assert sensitive_file_open("/etc/shadow") != sensitive_file_open("/etc/passwd")
+
+
+def test_sensitive_file_open_is_deterministic() -> None:
+    assert sensitive_file_open("/etc/shadow") == sensitive_file_open("/etc/shadow")
+
+
+def test_sensitive_file_open_rejects_relative_path() -> None:
+    with pytest.raises(ValueError):
+        sensitive_file_open("etc/shadow")
+
+
+def test_sensitive_file_open_rejects_too_long_path() -> None:
+    with pytest.raises(ValueError):
+        sensitive_file_open("/" + "a" * 255)

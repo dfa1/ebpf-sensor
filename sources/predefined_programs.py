@@ -182,6 +182,111 @@ int kprobe__do_init_module(struct pt_regs *ctx, struct module *mod) {
 """
 
 
+def execve() -> str:
+    """Trace all execve syscalls (process execution)."""
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    bpf_probe_read_user_str(ev.payload, sizeof(ev.payload), args->filename);
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def ptrace() -> str:
+    """Trace ptrace calls via security_ptrace_access_check (process injection / debugging)."""
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+int kprobe__security_ptrace_access_check(struct pt_regs *ctx, struct task_struct *child, unsigned int mode) {
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    bpf_probe_read_kernel_str(ev.payload, sizeof(ev.payload), child->comm);
+    events.perf_submit(ctx, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def sensitive_file_open(path: str) -> str:
+    """Trace opens of a specific absolute file path (e.g. /etc/shadow).
+
+    Uses compile-time unrolled byte comparison — no BPF loops, works on all kernel versions.
+    """
+    if not path.startswith("/"):
+        raise ValueError(f"path must be absolute: {path!r}")
+    path_bytes = path.encode("utf-8")
+    if len(path_bytes) > 255:
+        raise ValueError(f"path too long (max 255 bytes): {path!r}")
+    comparisons = " ||\n        ".join(
+        f"fname[{i}] != {b}" for i, b in enumerate(path_bytes)
+    ) + f" ||\n        fname[{len(path_bytes)}] != 0"
+    return f"""
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {{
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+}};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_openat) {{
+    char fname[PAYLOAD_LEN];
+    bpf_probe_read_user_str(fname, sizeof(fname), args->filename);
+    if ({comparisons}) return 0;
+
+    struct event_t ev = {{}};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    __builtin_memcpy(ev.payload, fname, sizeof(ev.payload));
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}}
+"""
+
+
 def ip_host(addr: str) -> str:
     """Trace TCP connections to or from the given IPv4 address (dotted decimal)."""
     octets = [int(o) for o in addr.split(".")]
