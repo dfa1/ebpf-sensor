@@ -103,11 +103,37 @@ Concretely: a fleet of 1000 hosts emitting 10k events/s each would require 10M e
 | `suid_exec` | Privilege Escalation | TA0004 | Abuse Elevation Control Mechanism: Setuid and Setgid | T1548.001 |
 | `commit_creds` | Privilege Escalation | TA0004 | Exploitation for Privilege Escalation | T1068 |
 | `module_load` | Persistence / Defense Evasion | TA0003 / TA0005 | Boot or Logon Autostart Execution: Kernel Modules | T1547.006 |
+| `execve` | Execution | TA0002 | Native API | T1106 |
+| `ptrace` | Defense Evasion / Privilege Escalation | TA0005 / TA0004 | Process Injection: ptrace System Calls | T1055.008 |
+| `sensitive_file_open` | Credential Access | TA0006 | OS Credential Dumping: /etc/passwd and /etc/shadow | T1003.008 |
 | `raw_socket` | Exfiltration | TA0010 | Exfiltration Over Alternative Protocol | T1048 |
 | `bpf_prog_load` | Defense Evasion | TA0005 | Indicator Removal: Disable or Modify Tools | T1562.001 |
 | `container_escape_unshare` | Privilege Escalation | TA0004 | Escape to Host | T1611 |
 | `memfd_exec` | Defense Evasion | TA0005 | Reflective Code Loading | T1620 |
 | `shadow_read` | Credential Access | TA0006 | OS Credential Dumping | T1003 |
+
+### Tactic Coverage
+
+All 14 ATT&CK Enterprise tactics. Checks column lists implemented BPF programs; blank = no coverage yet.
+
+| Tactic | ID | Checks |
+|---|---|---|
+| Reconnaissance | TA0043 | |
+| Resource Development | TA0042 | |
+| Initial Access | TA0001 | |
+| Execution | TA0002 | `execve` |
+| Persistence | TA0003 | `module_load` |
+| Privilege Escalation | TA0004 | `suid_exec`, `commit_creds`, `ptrace`, `container_escape_unshare` |
+| Defense Evasion | TA0005 | `module_load`, `ptrace`, `bpf_prog_load`, `memfd_exec` |
+| Credential Access | TA0006 | `sensitive_file_open`, `shadow_read` |
+| Discovery | TA0007 | |
+| Lateral Movement | TA0008 | |
+| Collection | TA0009 | |
+| Command and Control | TA0011 | |
+| Exfiltration | TA0010 | `raw_socket` |
+| Impact | TA0040 | |
+
+6 of 14 tactics covered. Gaps: Reconnaissance, Resource Development, Initial Access, Discovery, Lateral Movement, Collection, Command and Control, Impact.
 
 ### Kafka Message Schema (with MITRE)
 
@@ -150,6 +176,18 @@ rules:
     priority: high
     mitre_tactic: "TA0003"
     mitre_technique: "T1547.006"
+  execve:
+    priority: info
+    mitre_tactic: "TA0002"
+    mitre_technique: "T1106"
+  ptrace:
+    priority: high
+    mitre_tactic: "TA0005"
+    mitre_technique: "T1055.008"
+  sensitive_file_open:
+    priority: critical
+    mitre_tactic: "TA0006"
+    mitre_technique: "T1003.008"
   tcp_connect:
     priority: low
 ```
