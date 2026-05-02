@@ -72,7 +72,9 @@ int kprobe__icmp_push_reply(struct pt_regs *ctx) {
 
 
 def suid_exec() -> str:
-    """Trace execve of SUID/SGID binaries by inspecting inode mode bits at bprm check time."""
+    """Trace execve of SUID/SGID binaries by inspecting inode mode bits
+    at bprm check time.
+    """
     return """
 #include <uapi/linux/ptrace.h>
 #include <linux/binfmts.h>
@@ -213,7 +215,9 @@ TRACEPOINT_PROBE(syscalls, sys_enter_execve) {
 
 
 def ptrace() -> str:
-    """Trace ptrace calls via security_ptrace_access_check (process injection / debugging)."""
+    """Trace ptrace calls via security_ptrace_access_check
+    (process injection / debugging).
+    """
     return """
 #include <uapi/linux/ptrace.h>
 #include <linux/sched.h>
@@ -230,7 +234,8 @@ struct event_t {
 
 BPF_PERF_OUTPUT(events);
 
-int kprobe__security_ptrace_access_check(struct pt_regs *ctx, struct task_struct *child, unsigned int mode) {
+int kprobe__security_ptrace_access_check(struct pt_regs *ctx,
+    struct task_struct *child, unsigned int mode) {
     struct event_t ev = {};
     ev.ts  = bpf_ktime_get_ns();
     ev.pid = bpf_get_current_pid_tgid() >> 32;
@@ -245,7 +250,8 @@ int kprobe__security_ptrace_access_check(struct pt_regs *ctx, struct task_struct
 def sensitive_file_open(path: str) -> str:
     """Trace opens of a specific absolute file path (e.g. /etc/shadow).
 
-    Uses compile-time unrolled byte comparison — no BPF loops, works on all kernel versions.
+    Uses compile-time unrolled byte comparison — no BPF loops,
+    works on all kernel versions.
     """
     if not path.startswith("/"):
         raise ValueError(f"path must be absolute: {path!r}")

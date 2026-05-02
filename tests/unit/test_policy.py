@@ -2,7 +2,6 @@ import pytest
 
 from policy import MitreTag, Policy, Priority
 
-
 # --- Priority ---
 
 

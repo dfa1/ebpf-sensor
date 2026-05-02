@@ -10,9 +10,7 @@ from sources.predefined_programs import (
     sensitive_file_open,
     suid_exec,
     tcp_port,
-    udp_port,
 )
-
 
 # --- suid_exec ---
 

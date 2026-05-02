@@ -4,7 +4,7 @@ from typing import Callable
 from unittest.mock import MagicMock
 
 from event import Event
-from sources.bpf import BpfEventSource, _BpfEvent, _PAYLOAD_LEN, TASK_COMM_LEN
+from sources.bpf import BpfEventSource, _BpfEvent
 
 
 def test_bpfevent_layout() -> None:
