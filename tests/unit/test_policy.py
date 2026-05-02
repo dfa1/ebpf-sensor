@@ -96,7 +96,11 @@ def test_from_dict_parses_mitre_tags() -> None:
 def test_from_dict_mitre_optional_per_rule() -> None:
     cfg = {
         "rules": {
-            "suid_exec": {"priority": "critical", "mitre_tactic": "TA0004", "mitre_technique": "T1548.001"},
+            "suid_exec": {
+                "priority": "critical",
+                "mitre_tactic": "TA0004",
+                "mitre_technique": "T1548.001",
+            },
             "tcp_connect": {"priority": "low"},
         }
     }

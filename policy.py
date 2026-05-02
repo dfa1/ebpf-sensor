@@ -13,7 +13,7 @@ class Priority(str, Enum):
 
 @dataclass(frozen=True)
 class MitreTag:
-    tactic_id: str    # e.g. "TA0004"
+    tactic_id: str  # e.g. "TA0004"
     technique_id: str  # e.g. "T1548.001"
 
 

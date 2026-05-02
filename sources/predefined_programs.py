@@ -252,9 +252,10 @@ def sensitive_file_open(path: str) -> str:
     path_bytes = path.encode("utf-8")
     if len(path_bytes) > 255:
         raise ValueError(f"path too long (max 255 bytes): {path!r}")
-    comparisons = " ||\n        ".join(
-        f"fname[{i}] != {b}" for i, b in enumerate(path_bytes)
-    ) + f" ||\n        fname[{len(path_bytes)}] != 0"
+    comparisons = (
+        " ||\n        ".join(f"fname[{i}] != {b}" for i, b in enumerate(path_bytes))
+        + f" ||\n        fname[{len(path_bytes)}] != 0"
+    )
     return f"""
 #include <uapi/linux/ptrace.h>
 #include <linux/sched.h>
