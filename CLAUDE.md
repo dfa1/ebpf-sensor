@@ -30,3 +30,9 @@ uv run ruff check .                                    # lint
 
 - Before asking about file locations or class definitions, search first: `rg -n "class ClassName"` or Glob/Grep
 - Only ask the user if search returns nothing
+
+## General Guidelines
+
+- When the user explicitly requests a change, do it — do not refuse or recommend against it
+- Never change build/test commands (e.g. `uv run python -m pytest`) without being explicitly asked; if you change a command in one place, do not silently update CLAUDE.md or README to match
+- When editing documents, double-check that edits land under the correct section/employer/heading before writing
