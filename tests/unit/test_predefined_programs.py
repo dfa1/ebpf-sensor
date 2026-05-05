@@ -1,6 +1,7 @@
 import pytest
 
 from sources.predefined_programs import (
+    af_alg_socket,
     commit_creds,
     execve,
     icmp,
@@ -123,3 +124,14 @@ def test_sensitive_file_open_rejects_relative_path() -> None:
 def test_sensitive_file_open_rejects_too_long_path() -> None:
     with pytest.raises(ValueError):
         sensitive_file_open("/" + "a" * 255)
+
+
+# --- af_alg_socket ---
+
+
+def test_af_alg_socket_returns_string() -> None:
+    assert isinstance(af_alg_socket(), str)
+
+
+def test_af_alg_socket_is_deterministic() -> None:
+    assert af_alg_socket() == af_alg_socket()

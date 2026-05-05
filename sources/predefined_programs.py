@@ -294,6 +294,50 @@ TRACEPOINT_PROBE(syscalls, sys_enter_openat) {{
 """
 
 
+def af_alg_socket() -> str:
+    """Detect copy.fail (CVE-2026-31431): non-root process creating AF_ALG sockets.
+
+    The exploit creates ~40 sequential AF_ALG (family=38) sockets to perform
+    controlled page-cache writes via splice(), overwriting setuid binaries to
+    gain root. Any non-root AF_ALG socket creation is anomalous — legitimate
+    AF_ALG users (cryptsetup, fscrypt) run as root.
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+#define AF_ALG        38
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_socket) {
+    if (args->family != AF_ALG) return 0;
+
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid == 0) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
 def ip_host(addr: str) -> str:
     """Trace TCP connections to or from the given IPv4 address (dotted decimal)."""
     octets = [int(o) for o in addr.split(".")]
