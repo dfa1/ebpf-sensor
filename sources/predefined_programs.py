@@ -381,6 +381,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_add_key) {
     ev.ts  = bpf_ktime_get_ns();
     ev.pid = bpf_get_current_pid_tgid() >> 32;
     bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    bpf_probe_read_user_str(ev.payload, sizeof(ev.payload), args->_description);
 
     events.perf_submit(args, &ev, sizeof(ev));
     return 0;
