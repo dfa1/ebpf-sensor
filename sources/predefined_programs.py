@@ -353,6 +353,8 @@ def dirtyfrag_rxrpc() -> str:
 #include <uapi/linux/ptrace.h>
 #include <linux/sched.h>
 
+typedef int key_serial_t;
+
 #define TASK_COMM_LEN 16
 #define PAYLOAD_LEN   256
 
@@ -369,9 +371,9 @@ TRACEPOINT_PROBE(syscalls, sys_enter_add_key) {
     u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     if (uid == 0) return 0;
 
-    /* Check keytype == "rxrpc" */
+    /* Check keytype == "rxrpc"; BCC renames the 'type' field to '_type' */
     char ktype[8] = {};
-    bpf_probe_read_user_str(ktype, sizeof(ktype), args->type);
+    bpf_probe_read_user_str(ktype, sizeof(ktype), args->_type);
     if (ktype[0] != 'r' || ktype[1] != 'x' || ktype[2] != 'r' ||
         ktype[3] != 'p' || ktype[4] != 'c' || ktype[5] != 0) return 0;
 

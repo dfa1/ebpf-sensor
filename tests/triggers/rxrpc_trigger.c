@@ -6,8 +6,14 @@
 #include <sys/socket.h>
 #include <linux/rxrpc.h>
 #include <linux/keyctl.h>
-#include <arpa/inet.h>
 #include <sys/syscall.h>
+
+// Forward-declare to avoid <arpa/inet.h>/<linux/in.h> enum redeclaration conflicts
+extern unsigned int inet_addr(const char *);
+static inline unsigned short _htons(unsigned short h) {
+    return (unsigned short)((h >> 8) | (h << 8));
+}
+#define htons _htons
 
 int main(void) {
     // 1. Register an rxrpc key (same as exploit)
