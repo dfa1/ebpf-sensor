@@ -3,7 +3,9 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Event:
-    timestamp: int  # nanoseconds since boot (bpf_ktime_get_ns); local machine clock only — not wall time, meaningless across machines or in Kafka
+    # nanoseconds since boot (bpf_ktime_get_ns); local machine clock only —
+    # not wall time, meaningless across machines or in Kafka
+    timestamp: int
     pid: int
     process: str
     payload: str
