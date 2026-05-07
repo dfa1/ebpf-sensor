@@ -338,6 +338,107 @@ TRACEPOINT_PROBE(syscalls, sys_enter_socket) {
 """
 
 
+def dirtyfrag_rxrpc() -> str:
+    """Detect DirtyFrag (RxRPC variant): non-root add_key with 'rxrpc' keytype.
+
+    The RxRPC exploit calls add_key("rxrpc", ...) three times to register
+    brute-forced session keys for RXKAD authentication. These keys enable
+    in-place pcbc(fcrypt) decryption on splice-planted page-cache pages,
+    bypassing the missing skb_cloned() COW check in rxkad_verify_packet_1().
+    The 'rxrpc' keytype is never legitimately used by non-root processes.
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_add_key) {
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid == 0) return 0;
+
+    /* Check keytype == "rxrpc" */
+    char ktype[8] = {};
+    bpf_probe_read_user_str(ktype, sizeof(ktype), args->type);
+    if (ktype[0] != 'r' || ktype[1] != 'x' || ktype[2] != 'r' ||
+        ktype[3] != 'p' || ktype[4] != 'c' || ktype[5] != 0) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def dirtyfrag_esp() -> str:
+    """Detect DirtyFrag (ESP variant): non-root enabling UDP_ENCAP_ESPINUDP.
+
+    The ESP exploit calls setsockopt(IPPROTO_UDP, UDP_ENCAP, UDP_ENCAP_ESPINUDP)
+    from a user-namespaced non-root process to enable ESP-in-UDP encapsulation.
+    This allows crafted IPsec packets to reach esp_input(), where the missing
+    skb_has_frag_list() guard lets splice-planted page-cache pages bypass
+    skb_cow_data(), writing attacker-controlled values via scatterwalk_map_and_copy().
+    Legitimate UDP_ENCAP_ESPINUDP users (VPN daemons, racoon, strongSwan) run as root.
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN      16
+#define PAYLOAD_LEN        256
+#define IPPROTO_UDP        17
+#define UDP_ENCAP          100
+#define UDP_ENCAP_ESPINUDP 2
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_setsockopt) {
+    if (args->level != IPPROTO_UDP) return 0;
+    if (args->optname != UDP_ENCAP) return 0;
+
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid == 0) return 0;
+
+    int encap_type = 0;
+    bpf_probe_read_user(&encap_type, sizeof(encap_type), (void *)args->optval);
+    if (encap_type != UDP_ENCAP_ESPINUDP) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
 def ip_host(addr: str) -> str:
     """Trace TCP connections to or from the given IPv4 address (dotted decimal)."""
     octets = [int(o) for o in addr.split(".")]

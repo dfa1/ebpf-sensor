@@ -3,6 +3,8 @@ import pytest
 from sources.predefined_programs import (
     af_alg_socket,
     commit_creds,
+    dirtyfrag_esp,
+    dirtyfrag_rxrpc,
     execve,
     icmp,
     ip_host,
@@ -135,3 +137,29 @@ def test_af_alg_socket_returns_string() -> None:
 
 def test_af_alg_socket_is_deterministic() -> None:
     assert af_alg_socket() == af_alg_socket()
+
+
+# --- dirtyfrag_rxrpc ---
+
+
+def test_dirtyfrag_rxrpc_returns_string() -> None:
+    assert isinstance(dirtyfrag_rxrpc(), str)
+
+
+def test_dirtyfrag_rxrpc_is_deterministic() -> None:
+    assert dirtyfrag_rxrpc() == dirtyfrag_rxrpc()
+
+
+def test_dirtyfrag_rxrpc_differs_from_esp() -> None:
+    assert dirtyfrag_rxrpc() != dirtyfrag_esp()
+
+
+# --- dirtyfrag_esp ---
+
+
+def test_dirtyfrag_esp_returns_string() -> None:
+    assert isinstance(dirtyfrag_esp(), str)
+
+
+def test_dirtyfrag_esp_is_deterministic() -> None:
+    assert dirtyfrag_esp() == dirtyfrag_esp()
