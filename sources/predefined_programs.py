@@ -442,6 +442,183 @@ TRACEPOINT_PROBE(syscalls, sys_enter_setsockopt) {
 """
 
 
+def splice_nonroot() -> str:
+    """Detect generic Copy Fail-class trigger: splice() from non-root process.
+
+    Every Copy Fail-class exploit (CVE-2026-31431, DirtyFrag-RxRPC,
+    DirtyFrag-ESP) drives a page-cache write by splice()'ing pages from a
+    pipe into a socket (AF_ALG / AF_RXRPC / UDP). The splice() syscall is
+    the universal trigger primitive across all known variants and any
+    future MSG_SPLICE_PAGES no-COW fast-path bug.
+
+    Hook chosen at the sys_enter_splice tracepoint (cold) instead of
+    sock_sendmsg / splice_to_socket kprobes (hot path on every send) per
+    Elastic and Threatbear guidance: stay at syscall boundary, correlate
+    sink-side with prior af_alg_socket / dirtyfrag_* events on same pid.
+
+    Noise: legitimate splice() users exist (nginx sendfile path, copy
+    tools using splice for zero-copy). Designed to be paired with
+    af_alg_socket / af_alg_bind_aead for correlation, not used standalone.
+
+    Sources:
+      https://www.elastic.co/security-labs/copy-fail-dirtyfrag-linux-page-bugs-in-the-wild
+      https://www.threatbear.co/blog/detecting-copyfail-using-ebpf/
+      https://github.com/thrandomv/cve-2026-31431-detection
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN 16
+#define PAYLOAD_LEN   256
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_splice) {
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid == 0) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def af_alg_bind_aead() -> str:
+    """Detect Copy Fail setup: bind() of AF_ALG socket to authencesn AEAD.
+
+    CVE-2026-31431 binds an AF_ALG socket to the AEAD template
+    `authencesn(hmac(sha256),cbc(aes))`. The authencesn assoclen-handling
+    bug is what produces the controlled 4-byte page-cache write. The bind
+    name is a near-zero-false-positive indicator: legitimate AF_ALG users
+    (cryptsetup, fscrypt, kcapi-*) bind cipher templates like `cbc(aes)`
+    or `xts(aes)`, not authencesn.
+
+    struct sockaddr_alg layout (uapi/linux/if_alg.h):
+        u16 salg_family;       // offset  0  (AF_ALG = 38)
+        u8  salg_type[14];     // offset  2  ("aead", "skcipher", ...)
+        u32 salg_feat;         // offset 16
+        u32 salg_mask;         // offset 20
+        u8  salg_name[64];     // offset 24  (template name)
+
+    Sources:
+      https://github.com/thrandomv/cve-2026-31431-detection  (Sigma Rule 2)
+      https://xint.io/blog/copy-fail-linux-distributions
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN     16
+#define PAYLOAD_LEN       256
+#define AF_ALG            38
+#define SALG_NAME_OFFSET  24
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_bind) {
+    u16 family = 0;
+    bpf_probe_read_user(&family, sizeof(family), (void *)args->umyaddr);
+    if (family != AF_ALG) return 0;
+
+    char name[16] = {};
+    bpf_probe_read_user(&name, sizeof(name),
+                        (void *)((char *)args->umyaddr + SALG_NAME_OFFSET));
+    if (name[0] != 'a' || name[1] != 'u' || name[2] != 't' ||
+        name[3] != 'h' || name[4] != 'e' || name[5] != 'n' ||
+        name[6] != 'c' || name[7] != 'e' || name[8] != 's' ||
+        name[9] != 'n') return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+    __builtin_memcpy(ev.payload, name, sizeof(name));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
+def unshare_userns_netns() -> str:
+    """Detect DirtyFrag precursor: unshare(CLONE_NEWUSER | CLONE_NEWNET).
+
+    DirtyFrag-ESP requires CAP_NET_ADMIN to install an xfrm SA, which an
+    unprivileged attacker obtains by entering a user namespace where they
+    are root, plus a fresh net namespace where that root status grants
+    real netlink privileges. The combined flag set is a standard
+    user-namespace-sandbox primitive, so this signal is noisy in
+    environments running rootless podman, firejail, bubblewrap, or browser
+    sandboxes — emit as a low-priority correlation aid, not a standalone
+    alert.
+
+    Sources:
+      https://www.elastic.co/security-labs/copy-fail-dirtyfrag-linux-page-bugs-in-the-wild
+      https://blog.qualys.com/product-tech/vulnmgmt-detection-response/2026/05/09/dirty-frag-using-the-page-caches-as-an-attack-surface
+
+    MITRE: TA0004 Privilege Escalation / T1068 Exploitation for Privilege Escalation
+    """
+    return """
+#include <uapi/linux/ptrace.h>
+#include <linux/sched.h>
+
+#define TASK_COMM_LEN  16
+#define PAYLOAD_LEN    256
+#define CLONE_NEWUSER  0x10000000
+#define CLONE_NEWNET   0x40000000
+
+struct event_t {
+    u64  ts;
+    u32  pid;
+    char comm[TASK_COMM_LEN];
+    char payload[PAYLOAD_LEN];
+};
+
+BPF_PERF_OUTPUT(events);
+
+TRACEPOINT_PROBE(syscalls, sys_enter_unshare) {
+    unsigned long flags = args->unshare_flags;
+    if (!(flags & CLONE_NEWUSER)) return 0;
+    if (!(flags & CLONE_NEWNET)) return 0;
+
+    u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid == 0) return 0;
+
+    struct event_t ev = {};
+    ev.ts  = bpf_ktime_get_ns();
+    ev.pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(&ev.comm, sizeof(ev.comm));
+
+    events.perf_submit(args, &ev, sizeof(ev));
+    return 0;
+}
+"""
+
+
 def ip_host(addr: str) -> str:
     """Trace TCP connections to or from the given IPv4 address (dotted decimal)."""
     octets = [int(o) for o in addr.split(".")]

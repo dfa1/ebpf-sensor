@@ -1,6 +1,7 @@
 import pytest
 
 from sources.predefined_programs import (
+    af_alg_bind_aead,
     af_alg_socket,
     commit_creds,
     dirtyfrag_esp,
@@ -11,8 +12,10 @@ from sources.predefined_programs import (
     module_load,
     ptrace,
     sensitive_file_open,
+    splice_nonroot,
     suid_exec,
     tcp_port,
+    unshare_userns_netns,
 )
 
 # --- suid_exec ---
@@ -163,3 +166,48 @@ def test_dirtyfrag_esp_returns_string() -> None:
 
 def test_dirtyfrag_esp_is_deterministic() -> None:
     assert dirtyfrag_esp() == dirtyfrag_esp()
+
+
+# --- splice_nonroot ---
+
+
+def test_splice_nonroot_returns_string() -> None:
+    assert isinstance(splice_nonroot(), str)
+
+
+def test_splice_nonroot_is_deterministic() -> None:
+    assert splice_nonroot() == splice_nonroot()
+
+
+def test_splice_nonroot_differs_from_af_alg_socket() -> None:
+    assert splice_nonroot() != af_alg_socket()
+
+
+# --- af_alg_bind_aead ---
+
+
+def test_af_alg_bind_aead_returns_string() -> None:
+    assert isinstance(af_alg_bind_aead(), str)
+
+
+def test_af_alg_bind_aead_is_deterministic() -> None:
+    assert af_alg_bind_aead() == af_alg_bind_aead()
+
+
+def test_af_alg_bind_aead_differs_from_af_alg_socket() -> None:
+    assert af_alg_bind_aead() != af_alg_socket()
+
+
+# --- unshare_userns_netns ---
+
+
+def test_unshare_userns_netns_returns_string() -> None:
+    assert isinstance(unshare_userns_netns(), str)
+
+
+def test_unshare_userns_netns_is_deterministic() -> None:
+    assert unshare_userns_netns() == unshare_userns_netns()
+
+
+def test_unshare_userns_netns_differs_from_splice_nonroot() -> None:
+    assert unshare_userns_netns() != splice_nonroot()
